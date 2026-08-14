@@ -42,6 +42,30 @@ class ProductController extends Controller
         return response()->json($products);
     }
 
+    public function update(Request $request, $id)
+    {
+        $data = $request->validate([
+            'name' => 'required|string|max:255',
+            'quantity' => 'required|integer|min:0',
+            'price' => 'required|numeric|min:0',
+        ]);
+
+        $products = $this->readProducts();
+
+        foreach ($products as &$product) {
+            if ($product['id'] == $id) {
+                $product['name'] = $data['name'];
+                $product['quantity'] = (int) $data['quantity'];
+                $product['price'] = (float) $data['price'];
+            }
+        }
+        unset($product);
+
+        $this->writeProducts($products);
+
+        return response()->json($products);
+    }
+
     private function readProducts()
     {
         if (!Storage::exists('products.json')) {

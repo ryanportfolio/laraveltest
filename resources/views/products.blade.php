@@ -50,11 +50,47 @@
                         <th>Price per item</th>
                         <th>Datetime submitted</th>
                         <th>Total value number</th>
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody></tbody>
                 <tfoot></tfoot>
             </table>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="edit-modal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="edit-form" novalidate>
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Product</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="edit-id">
+                    <div class="mb-3">
+                        <label class="form-label" for="edit-name">Product name</label>
+                        <input type="text" class="form-control" id="edit-name" name="name">
+                        <div class="invalid-feedback"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="edit-quantity">Quantity in stock</label>
+                        <input type="number" class="form-control" id="edit-quantity" name="quantity" min="0">
+                        <div class="invalid-feedback"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="edit-price">Price per item</label>
+                        <input type="number" class="form-control" id="edit-price" name="price" min="0" step="0.01">
+                        <div class="invalid-feedback"></div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save changes</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -67,6 +103,7 @@ $(function () {
         headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') }
     });
 
+    var editModal = new bootstrap.Modal('#edit-modal');
     var products = [];
 
     function renderTable() {
@@ -84,6 +121,13 @@ $(function () {
             row.append($('<td>').text(Number(product.price).toFixed(2)));
             row.append($('<td>').text(product.submitted_at));
             row.append($('<td>').text(total.toFixed(2)));
+            row.append($('<td>').append(
+                $('<button>')
+                    .attr('type', 'button')
+                    .addClass('btn btn-sm btn-outline-secondary edit-btn')
+                    .data('id', product.id)
+                    .text('Edit')
+            ));
             tbody.append(row);
         });
 
@@ -92,11 +136,12 @@ $(function () {
                 $('<tr>').addClass('table-secondary fw-bold')
                     .append($('<td>').attr('colspan', 4).text('Sum total'))
                     .append($('<td>').text(sum.toFixed(2)))
+                    .append($('<td>'))
             );
         } else {
             tbody.append(
                 $('<tr>').append(
-                    $('<td>').attr('colspan', 5).addClass('text-center text-muted').text('No products submitted yet')
+                    $('<td>').attr('colspan', 6).addClass('text-center text-muted').text('No products submitted yet')
                 )
             );
         }
@@ -131,6 +176,47 @@ $(function () {
             renderTable();
             form.reset();
             $(form).find('.is-invalid').removeClass('is-invalid');
+        }).fail(function (xhr) {
+            if (xhr.status === 422) {
+                showErrors(form, xhr.responseJSON.errors);
+            }
+        });
+    });
+
+    $('#products-table').on('click', '.edit-btn', function () {
+        var id = $(this).data('id');
+        var product = null;
+
+        $.each(products, function (i, p) {
+            if (p.id === id) {
+                product = p;
+            }
+        });
+
+        if (!product) {
+            return;
+        }
+
+        $('#edit-id').val(product.id);
+        $('#edit-name').val(product.name);
+        $('#edit-quantity').val(product.quantity);
+        $('#edit-price').val(product.price);
+        $('#edit-form').find('.is-invalid').removeClass('is-invalid');
+        editModal.show();
+    });
+
+    $('#edit-form').on('submit', function (e) {
+        e.preventDefault();
+        var form = this;
+
+        $.post('products/' + $('#edit-id').val(), {
+            name: $('#edit-name').val(),
+            quantity: $('#edit-quantity').val(),
+            price: $('#edit-price').val()
+        }).done(function (data) {
+            products = data;
+            renderTable();
+            editModal.hide();
         }).fail(function (xhr) {
             if (xhr.status === 422) {
                 showErrors(form, xhr.responseJSON.errors);
